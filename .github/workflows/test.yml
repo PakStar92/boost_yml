@@ -1,0 +1,31 @@
+name: test api
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+
+jobs:
+  boost-install:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [20.x, 21.x, 22.x, 23.x, 24.x, 25.x]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+
+      - name: Clean npm cache and environment
+        run: |
+          npm cache clean --force
+          rm -rf node_modules
+          rm -rf package-lock.json
+
+      - name: Install api-qasim
+        run: npm install api-qasim --no-save
