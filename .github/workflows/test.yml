@@ -25,4 +25,4 @@ jobs:
       - name: Clean and Install
         run: |
           npm cache clean --force
-          npm install api-qasim --no-save
+          npm install stickers-formatter --no-save
