@@ -1,0 +1,112 @@
+name: Battle Test — Deno 2.x
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: Deno 2.x / ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # ── ffmpeg ──────────────────────────────────────────────────────────
+      - name: Install ffmpeg (Ubuntu)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y ffmpeg
+
+      - name: Install ffmpeg (macOS)
+        if: runner.os == 'macOS'
+        run: brew install ffmpeg
+
+      - name: Install ffmpeg (Windows)
+        if: runner.os == 'Windows'
+        run: choco install ffmpeg -y
+
+      - name: Verify ffmpeg & ffprobe
+        run: |
+          ffmpeg -version
+          ffprobe -version
+
+      # ── Deno ────────────────────────────────────────────────────────────
+      - name: Setup Deno 2.x
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: "~2"
+
+      - name: Show Deno version
+        run: deno --version
+
+      # ── create deno-compatible test wrapper ─────────────────────────────
+      - name: Write deno test entry point
+        shell: bash
+        run: |
+          cat > deno-test.ts << 'DENOEOF'
+          /**
+           * Deno entry point for mediaforge battle test.
+           * Imports test.mjs via npm specifier — Deno 2.x npm compat.
+           *
+           * Run with:
+           *   deno run --allow-run=ffmpeg,ffprobe --allow-read --allow-write --allow-env deno-test.ts
+           */
+
+          // Patch: Deno's npm compat resolves mediaforge via node_modules
+          // We run the test using Deno's node compat layer.
+          import "./test.mjs";
+          DENOEOF
+
+      # ── install deps for Deno (npm compat uses node_modules) ───────────
+      - name: Install npm deps (for Deno npm compat)
+        run: npm install
+
+      # ── run tests ───────────────────────────────────────────────────────
+      - name: Run battle test (Deno)
+        id: test
+        continue-on-error: true
+        shell: bash
+        run: |
+          deno run \
+            --allow-run=ffmpeg,ffprobe \
+            --allow-read \
+            --allow-write \
+            --allow-env \
+            --allow-net \
+            --unstable-node-globals \
+            test.mjs 2>&1 | tee test-output-deno.txt
+
+      - name: Show test output summary
+        if: always()
+        shell: bash
+        run: |
+          echo "=========================================="
+          echo "  FINAL TEST LOG — Deno 2.x / ${{ matrix.os }}"
+          echo "=========================================="
+          cat test-output-deno.txt || echo "(no output file)"
+
+      - name: Upload test artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-output-deno-${{ matrix.os }}
+          path: |
+            test-output-deno.txt
+          if-no-files-found: ignore
+
+      - name: Fail job if tests failed
+        if: steps.test.outcome == 'failure'
+        run: |
+          echo "Tests reported failures. See above log for all errors."
+          exit 1

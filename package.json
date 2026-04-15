@@ -1,0 +1,12 @@
+{
+  "name": "mediaforge-battle-test",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Battle test suite for mediaforge — every export, every method",
+  "scripts": {
+    "test": "node test.mjs"
+  },
+  "dependencies": {
+    "mediaforge": "latest"
+  }
+}
