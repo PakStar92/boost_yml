@@ -21,7 +21,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # ── ffmpeg ──────────────────────────────────────────────────────────
       - name: Install ffmpeg (Ubuntu)
         if: runner.os == 'Linux'
         run: |
@@ -41,7 +40,6 @@ jobs:
           ffmpeg -version
           ffprobe -version
 
-      # ── Bun ─────────────────────────────────────────────────────────────
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
         with:
@@ -53,14 +51,13 @@ jobs:
       - name: Install dependencies
         run: bun install
 
-      # ── run tests ───────────────────────────────────────────────────────
       - name: Run battle test (Bun)
         id: test
         continue-on-error: true
         shell: bash
         run: bun run test.mjs 2>&1 | tee test-output-bun.txt
 
-      - name: Show test output summary
+      - name: Show final log
         if: always()
         shell: bash
         run: |
@@ -69,17 +66,14 @@ jobs:
           echo "=========================================="
           cat test-output-bun.txt || echo "(no output file)"
 
-      - name: Upload test artifacts
+      - name: Upload artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: test-output-bun-${{ matrix.os }}
-          path: |
-            test-output-bun.txt
+          path: test-output-bun.txt
           if-no-files-found: ignore
 
-      - name: Fail job if tests failed
+      - name: Fail if tests failed
         if: steps.test.outcome == 'failure'
-        run: |
-          echo "Tests reported failures. See above log for all errors."
-          exit 1
+        run: exit 1
